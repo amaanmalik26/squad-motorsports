@@ -41,9 +41,9 @@
                 
                 <div class="flex items-baseline gap-2 mb-8">
                     <span class="text-4xl font-bold text-white tracking-tight">
-                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(bike.price)}
+                        {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(bike.price)}
                     </span>
-                    <span class="text-gray-500 text-sm font-medium">USD</span>
+                    <span class="text-gray-500 text-sm font-medium">PKR</span>
                 </div>
 
                 <div class="flex flex-col gap-4 mb-8">

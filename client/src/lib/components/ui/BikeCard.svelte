@@ -7,7 +7,7 @@
     // Format price to currency (e.g., $25,000)
     const formattedPrice = new Intl.NumberFormat('en-US', {
         style: 'currency',
-        currency: 'USD',
+        currency: 'PKR',
         maximumFractionDigits: 0
     }).format(bike.price);
 </script>
