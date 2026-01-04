@@ -249,7 +249,7 @@
                     </div>
                     <div class="grid grid-cols-3 gap-4">
                         <div>
-                            <label class="text-xs font-bold text-gray-500 uppercase">Price ($)</label>
+                            <label class="text-xs font-bold text-gray-500 uppercase">Price (PKR)</label>
                             <input type="number" bind:value={formBike.price} class="w-full bg-black/50 border border-white/10 p-3 text-white" required />
                         </div>
                         <div>
