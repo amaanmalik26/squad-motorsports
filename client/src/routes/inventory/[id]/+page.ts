@@ -5,8 +5,7 @@ import { API_URL } from '$lib/config';
 
 export const load: PageLoad = async ({ params, fetch }) => {
     const { id } = params;
-    const response = await fetch(`http://localhost:5000/api/bikes/${id}`);
-
+    const response = await fetch(`${API_URL}/api/bikes/${id}`);
     if (!response.ok) {
         throw error(404, 'Bike not found');
     }
