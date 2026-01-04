@@ -4,19 +4,26 @@
     import { fade, scale, slide } from 'svelte/transition';
     import { flip } from 'svelte/animate';
     import type { Bike } from '$lib/types';
-    import { API_URL } from '$lib/config';
+    import { API_URL } from '$lib/config'; // Import API_URL
 
     // State
-    let activeTab = $state('inventory'); // Default to inventory to see buttons
+    let activeTab = $state('inventory');
     let inquiries: any[] = $state([]);
     let bikes: Bike[] = $state([]);
     let isLoading = $state(true);
-    let showModal = $state(false);
+    
+    // Modal States
+    let showModal = $state(false); // Add/Edit Modal
+    let showDeleteModal = $state(false); // New Delete Confirmation Modal
+    
+    // Loading States
     let isUploading = $state(false);
+    let isDeleting = $state(false);
 
-    // Edit Mode State
+    // Editing State
     let isEditing = $state(false);
     let editingId = $state(0);
+    let deleteId = $state(0); // Track which bike to delete
 
     // Form Data
     let formBike = $state({
@@ -29,10 +36,9 @@
         kms: '',
         description: '',
         status: 'available',
-        currentImage: '' // To store the existing URL during edit
+        currentImage: ''
     });
     
-    // File Handling
     let imageFile: File | null = $state(null);
     let imagePreview: string = $state("");
 
@@ -47,9 +53,9 @@
     });
 
     async function loadData() {
-        const resInq = await fetch(API_URL + '/api/inquiries');
+        const resInq = await fetch(`${API_URL}/api/inquiries`);
         inquiries = await resInq.json();
-        const resBikes = await fetch(API_URL + '/api/bikes');
+        const resBikes = await fetch(`${API_URL}/api/bikes`);
         bikes = await resBikes.json();
     }
 
@@ -61,7 +67,8 @@
         }
     }
 
-    // OPEN MODAL FOR ADDING
+    // --- MODAL CONTROLS ---
+
     function openAddModal() {
         isEditing = false;
         editingId = 0;
@@ -71,12 +78,9 @@
         showModal = true;
     }
 
-    // OPEN MODAL FOR EDITING
     function openEditModal(bike: Bike) {
         isEditing = true;
         editingId = bike.id;
-        
-        // Populate form with existing data
         formBike = {
             brand: bike.brand,
             name: bike.name,
@@ -84,17 +88,17 @@
             year: bike.year,
             engine: bike.engine,
             power: bike.power,
-            kms: '', // We leave blank, user can edit description if needed
+            kms: '',
             description: bike.description,
             status: bike.status as string,
             currentImage: bike.images[0] || ''
         };
-        
         imageFile = null;
-        // Show existing image as preview
         imagePreview = bike.images[0] || "";
         showModal = true;
     }
+
+    // --- SAVE LOGIC ---
 
     async function handleSaveBike(e: Event) {
         e.preventDefault();
@@ -103,42 +107,24 @@
         try {
             let finalImageUrl = formBike.currentImage;
 
-            // 1. If new file selected, upload it
             if (imageFile) {
                 const formData = new FormData();
                 formData.append('image', imageFile);
-
-                const uploadRes = await fetch(API_URL + '/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const uploadRes = await fetch(`${API_URL}/api/upload`, { method: 'POST', body: formData });
                 if (!uploadRes.ok) throw new Error('Image upload failed');
                 const data = await uploadRes.json();
                 finalImageUrl = data.url;
             } else if (!finalImageUrl) {
-                // Fallback if adding new with no image
                 finalImageUrl = "https://images.unsplash.com/photo-1558980394-0a06c46e60e7";
             }
 
-            // 2. Prepare Payload
-            // If adding new, we append Mileage. If editing, we assume description is already correct or edited manually.
             let finalDesc = formBike.description;
             if (!isEditing && formBike.kms) {
                 finalDesc = `Mileage: ${formBike.kms} km. ${formBike.description}`;
             }
 
-            const payload = {
-                ...formBike,
-                description: finalDesc,
-                images: [finalImageUrl] 
-            };
-
-            // 3. Send Request (POST for Add, PUT for Edit)
-            const url = isEditing 
-                ? `http://localhost:5000/api/bikes/${editingId}`
-                : API_URL + '/api/bikes';
-            
+            const payload = { ...formBike, description: finalDesc, images: [finalImageUrl] };
+            const url = isEditing ? `${API_URL}/api/bikes/${editingId}` : `${API_URL}/api/bikes`;
             const method = isEditing ? 'PUT' : 'POST';
 
             const res = await fetch(url, {
@@ -161,15 +147,31 @@
         }
     }
 
-    async function deleteBike(id: number) {
-        if(!confirm("Are you sure you want to remove this vehicle?")) return;
+    // --- DELETE LOGIC (UPDATED) ---
+
+    // 1. Trigger the Modal
+    function requestDelete(id: number) {
+        deleteId = id;
+        showDeleteModal = true;
+    }
+
+    // 2. Confirm and Execute
+    async function confirmDelete() {
+        if (!deleteId) return;
+        isDeleting = true;
+
         const originalList = [...bikes];
-        bikes = bikes.filter(b => b.id !== id);
+        bikes = bikes.filter(b => b.id !== deleteId); // Optimistic UI update
+
         try {
-            await fetch(`${API_URL}/api/bikes/${id}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/api/bikes/${deleteId}`, { method: 'DELETE' });
+            showDeleteModal = false;
         } catch (err) {
-            bikes = originalList;
+            bikes = originalList; // Revert if failed
             alert("Delete failed");
+        } finally {
+            isDeleting = false;
+            deleteId = 0;
         }
     }
 
@@ -181,6 +183,44 @@
 
 <div class="min-h-screen bg-squad-black pt-48 px-6 pb-20 relative">
     
+    {#if showDeleteModal}
+        <div 
+            transition:fade={{ duration: 150 }}
+            class="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4"
+        >
+            <div 
+                transition:scale={{ duration: 200, start: 0.95 }}
+                class="bg-squad-gray border border-red-500/50 p-8 max-w-md w-full text-center shadow-[0_0_50px_rgba(220,38,38,0.2)]"
+            >
+                <div class="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-8 h-8 text-squad-red" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                </div>
+                
+                <h3 class="font-display text-2xl text-white uppercase tracking-wider mb-2">Confirm Deletion</h3>
+                <p class="text-gray-400 text-sm mb-8">
+                    Are you sure you want to remove this vehicle from the database? <br/> 
+                    <span class="text-red-400">This action cannot be undone.</span>
+                </p>
+
+                <div class="flex gap-4">
+                    <button 
+                        onclick={() => showDeleteModal = false}
+                        class="flex-1 border border-white/10 py-3 text-white font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onclick={confirmDelete}
+                        disabled={isDeleting}
+                        class="flex-1 bg-squad-red py-3 text-white font-bold uppercase tracking-widest hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >
+                        {isDeleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    {/if}
+
     {#if showModal}
         <div 
             transition:fade={{ duration: 200 }}
@@ -199,13 +239,7 @@
                         <div>
                             <label class="text-xs font-bold text-gray-500 uppercase">Brand</label>
                             <select bind:value={formBike.brand} class="w-full bg-black/50 border border-white/10 p-3 text-white">
-                                <option>Ducati</option>
-                                <option>BMW</option>
-                                <option>Kawasaki</option>
-                                <option>Yamaha</option>
-                                <option>Aprilia</option>
-                                <option>Honda</option>
-                                <option>Suzuki</option>
+                                <option>Ducati</option><option>BMW</option><option>Kawasaki</option><option>Yamaha</option><option>Aprilia</option><option>Honda</option><option>Suzuki</option><option>MV Agusta</option>
                             </select>
                         </div>
                         <div>
@@ -213,7 +247,6 @@
                             <input bind:value={formBike.name} class="w-full bg-black/50 border border-white/10 p-3 text-white" required />
                         </div>
                     </div>
-
                     <div class="grid grid-cols-3 gap-4">
                         <div>
                             <label class="text-xs font-bold text-gray-500 uppercase">Price ($)</label>
@@ -226,13 +259,10 @@
                          <div>
                             <label class="text-xs font-bold text-gray-500 uppercase">Status</label>
                             <select bind:value={formBike.status} class="w-full bg-black/50 border border-white/10 p-3 text-white">
-                                <option value="available">Available</option>
-                                <option value="sold">Sold</option>
-                                <option value="coming soon">Coming Soon</option>
+                                <option value="available">Available</option><option value="sold">Sold</option><option value="coming soon">Coming Soon</option>
                             </select>
                         </div>
                     </div>
-
                     <div class="grid grid-cols-3 gap-4">
                         <div>
                             <label class="text-xs font-bold text-gray-500 uppercase">Engine (CC)</label>
@@ -249,38 +279,21 @@
                         </div>
                         {/if}
                     </div>
-
                     <div class="border border-white/10 bg-black/30 p-4">
-                        <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">
-                            {isEditing ? 'Update Image (Optional)' : 'Vehicle Image'}
-                        </label>
+                        <label class="text-xs font-bold text-gray-500 uppercase mb-2 block">{isEditing ? 'Update Image (Optional)' : 'Vehicle Image'}</label>
                         <input type="file" accept="image/*" onchange={handleFileSelect} class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:border-0 file:bg-squad-red file:text-white file:font-bold file:uppercase cursor-pointer" />
-                        
                         {#if imagePreview}
-                            <div class="mt-4 relative h-40 w-full overflow-hidden border border-white/20">
-                                <img src={imagePreview} alt="Preview" class="w-full h-full object-cover" />
-                            </div>
+                            <div class="mt-4 relative h-40 w-full overflow-hidden border border-white/20"><img src={imagePreview} alt="Preview" class="w-full h-full object-cover" /></div>
                         {/if}
                     </div>
-
                     <div>
                         <label class="text-xs font-bold text-gray-500 uppercase">Description / Notes</label>
                         <textarea bind:value={formBike.description} rows="3" class="w-full bg-black/50 border border-white/10 p-3 text-white" required></textarea>
                     </div>
-
                     <div class="flex gap-4 pt-4">
                         <button type="button" onclick={() => showModal = false} class="w-full border border-white/20 text-white py-3 font-bold uppercase hover:bg-white hover:text-black transition-colors">Cancel</button>
-                        <button 
-                            type="submit" 
-                            disabled={isUploading}
-                            class="w-full bg-squad-red text-white py-3 font-bold uppercase hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                        >
-                            {#if isUploading}
-                                <span class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>
-                                {isEditing ? 'Updating...' : 'Uploading...'}
-                            {:else}
-                                {isEditing ? 'Save Changes' : 'Add to Inventory'}
-                            {/if}
+                        <button type="submit" disabled={isUploading} class="w-full bg-squad-red text-white py-3 font-bold uppercase hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                            {#if isUploading}<span class="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></span>{isEditing ? 'Updating...' : 'Uploading...'}{:else}{isEditing ? 'Save Changes' : 'Add to Inventory'}{/if}
                         </button>
                     </div>
                 </form>
@@ -295,12 +308,8 @@
                 <p class="text-gray-500 text-sm mt-2">Welcome back, Admin.</p>
             </div>
             <div class="flex gap-6 items-center">
-                <button onclick={openAddModal} class="bg-squad-red text-white px-6 py-2 font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all">
-                    + Add Vehicle
-                </button>
-                <button onclick={logout} class="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">
-                    Log Out
-                </button>
+                <button onclick={openAddModal} class="bg-squad-red text-white px-6 py-2 font-bold uppercase tracking-widest hover:bg-white hover:text-black transition-all">+ Add Vehicle</button>
+                <button onclick={logout} class="text-gray-500 text-xs font-bold uppercase tracking-widest hover:text-white transition-colors">Log Out</button>
             </div>
         </div>
 
@@ -323,8 +332,7 @@
                             <div>
                                 <h3 class="text-white font-bold uppercase tracking-wide text-sm mb-1">{item.name}</h3>
                                 <div class="flex gap-4 text-xs text-gray-500 mb-4">
-                                    <span>{item.email}</span>
-                                    <span>{new Date(item.createdAt).toLocaleDateString()}</span>
+                                    <span>{item.email}</span><span>{new Date(item.createdAt).toLocaleDateString()}</span>
                                 </div>
                                 <p class="text-gray-300 text-sm bg-black/30 p-4 border-l-2 border-squad-red max-w-2xl">"{item.message}"</p>
                             </div>
@@ -339,11 +347,7 @@
             {:else if activeTab === 'inventory'}
                 <div class="space-y-4">
                     {#each bikes as bike (bike.id)}
-                        <div 
-                            animate:flip={{ duration: 400 }} 
-                            transition:scale={{ duration: 300 }}
-                            class="bg-squad-gray p-4 flex items-center justify-between border border-white/5 group"
-                        >
+                        <div animate:flip={{ duration: 400 }} transition:scale={{ duration: 300 }} class="bg-squad-gray p-4 flex items-center justify-between border border-white/5 group">
                             <div class="flex items-center gap-6">
                                 <img src={bike.images[0]} alt="thumb" class="w-16 h-16 object-cover bg-black" />
                                 <div>
@@ -354,18 +358,8 @@
                             <div class="flex items-center gap-8">
                                 <span class="text-white font-mono">${bike.price}</span>
                                 <div class="flex gap-4">
-                                    <button 
-                                        onclick={() => openEditModal(bike)}
-                                        class="text-gray-400 hover:text-white uppercase text-xs font-bold tracking-widest transition-colors"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button 
-                                        onclick={() => deleteBike(bike.id)}
-                                        class="text-red-500 hover:text-red-400 uppercase text-xs font-bold tracking-widest transition-colors"
-                                    >
-                                        Delete
-                                    </button>
+                                    <button onclick={() => openEditModal(bike)} class="text-gray-400 hover:text-white uppercase text-xs font-bold tracking-widest transition-colors">Edit</button>
+                                    <button onclick={() => requestDelete(bike.id)} class="text-red-500 hover:text-red-400 uppercase text-xs font-bold tracking-widest transition-colors">Delete</button>
                                 </div>
                             </div>
                         </div>
