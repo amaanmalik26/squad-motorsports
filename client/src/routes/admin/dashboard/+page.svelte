@@ -166,7 +166,7 @@
         const originalList = [...bikes];
         bikes = bikes.filter(b => b.id !== id);
         try {
-            await fetch(`http://localhost:5000/api/bikes/${id}`, { method: 'DELETE' });
+            await fetch(`${API_URL}/api/bikes/${id}`, { method: 'DELETE' });
         } catch (err) {
             bikes = originalList;
             alert("Delete failed");
