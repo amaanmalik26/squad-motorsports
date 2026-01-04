@@ -1,0 +1,41 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Teko:wght@300;400;500;600;700&display=swap');
+
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@theme {
+  /* COLORS */
+  --color-squad-black: #0a0a0a;       /* Deepest Black */
+  --color-squad-dark: #121212;        /* Surface Dark */
+  --color-squad-gray: #1e1e1e;        /* Card Background */
+  --color-squad-red: #dc2626;         /* Primary Accent (Red-600) */
+  --color-squad-crimson: #991b1b;     /* Darker Red for gradients */
+  --color-squad-silver: #e5e5e5;      /* Text Primary */
+  
+  /* FONTS */
+  --font-sans: "Inter", sans-serif;
+  --font-display: "Teko", sans-serif; /* For Headings */
+}
+
+/* GLOBAL RESET FOR DARK THEME */
+body {
+  background-color: var(--color-squad-black);
+  color: var(--color-squad-silver);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* CUSTOM UTILITIES FOR THIS PROJECT */
+@utility text-glow {
+  text-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+}
+
+@utility skew-box {
+  transform: skew(-10deg);
+}
