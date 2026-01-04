@@ -184,9 +184,13 @@ app.delete('/api/bikes/:id', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+export default app;
+
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`Server running on http://localhost:${PORT}`);
+    });
+}
 
 // 4. ADMIN LOGIN (Public)
 app.post('/api/admin/login', async (req, res) => {
