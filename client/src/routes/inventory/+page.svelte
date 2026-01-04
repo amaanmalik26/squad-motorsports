@@ -66,7 +66,7 @@
             
             {#if bikes.length === 0}
                 <div class="py-20 text-center text-gray-500 border border-white/10 border-dashed">
-                    No bikes found in the database.
+                    No bikes found in the garage.
                 </div>
             {/if}
         </div>
