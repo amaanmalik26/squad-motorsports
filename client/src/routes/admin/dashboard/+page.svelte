@@ -356,7 +356,7 @@
                                 </div>
                             </div>
                             <div class="flex items-center gap-8">
-                                <span class="text-white font-mono">${bike.price}</span>
+                                <span class="text-white font-mono">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(bike.price)}</span>
                                 <div class="flex gap-4">
                                     <button onclick={() => openEditModal(bike)} class="text-gray-400 hover:text-white uppercase text-xs font-bold tracking-widest transition-colors">Edit</button>
                                     <button onclick={() => requestDelete(bike.id)} class="text-red-500 hover:text-red-400 uppercase text-xs font-bold tracking-widest transition-colors">Delete</button>
